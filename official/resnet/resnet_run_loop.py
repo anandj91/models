@@ -73,7 +73,7 @@ def process_record_dataset(dataset,
       threadpool created for all datasets computation.
     drop_remainder: A boolean indicates whether to drop the remainder of the
       batches. If True, the batch dimension will be static.
-    tf_data_experimental_slack: Whether to enable tf.data's
+    tf.contrib.data_slack: Whether to enable tf.data's
       `experimental_slack` option.
 
   Returns:
@@ -85,12 +85,12 @@ def process_record_dataset(dataset,
     options.experimental_threading.private_threadpool_size = (
         datasets_num_private_threads)
     dataset = dataset.with_options(options)
-    tf.compat.v1.logging.info('datasets_num_private_threads: %s',
+    tf.logging.info('datasets_num_private_threads: %s',
                               datasets_num_private_threads)
 
   # Disable intra-op parallelism to optimize for throughput instead of latency.
   options = tf.data.Options()
-  options.experimental_threading.max_intra_op_parallelism = 1
+  #options.experimental_threading.max_intra_op_parallelism = 1
   dataset = dataset.with_options(options)
 
   # Prefetches a batch at a time to smooth out the time taken to load input
@@ -106,7 +106,7 @@ def process_record_dataset(dataset,
   # Parses the raw records into images and labels.
   dataset = dataset.map(
       lambda value: parse_record_fn(value, is_training, dtype),
-      num_parallel_calls=tf.data.experimental.AUTOTUNE)
+      num_parallel_calls=tf.contrib.data.AUTOTUNE)
   dataset = dataset.batch(batch_size, drop_remainder=drop_remainder)
 
   # Operations between the final prefetch and the get_next call to the iterator
@@ -115,7 +115,7 @@ def process_record_dataset(dataset,
   # critical training path. Setting buffer_size to tf.contrib.data.AUTOTUNE
   # allows DistributionStrategies to adjust how many batches to fetch based
   # on how many devices are present.
-  dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+  dataset = dataset.prefetch(buffer_size=tf.contrib.data.AUTOTUNE)
 
   if tf_data_experimental_slack:
     options = tf.data.Options()
@@ -164,7 +164,7 @@ def get_synth_input_fn(height, width, num_channels, num_classes,
         dtype=tf.int32,
         name='synthetic_labels')
     data = tf.data.Dataset.from_tensors((inputs, labels)).repeat()
-    data = data.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    data = data.prefetch(buffer_size=tf.contrib.data.AUTOTUNE)
     return data
 
   return input_fn
@@ -182,7 +182,7 @@ def image_bytes_serving_input_fn(image_shape, dtype=tf.float32):
         image_bytes, bbox, height, width, num_channels, is_training=False)
     return image
 
-  image_bytes_list = tf.compat.v1.placeholder(
+  image_bytes_list = tf.placeholder(
       shape=[None], dtype=tf.string, name='input_tensor')
   images = tf.map_fn(
       _preprocess_image, image_bytes_list, back_prop=False, dtype=dtype)
@@ -207,16 +207,16 @@ def override_flags_and_set_envars_for_gpu_thread_pool(flags_obj):
     what has been set by the user on the command-line.
   """
   cpu_count = multiprocessing.cpu_count()
-  tf.compat.v1.logging.info('Logical CPU cores: %s', cpu_count)
+  tf.logging.info('Logical CPU cores: %s', cpu_count)
 
   # Sets up thread pool for each GPU for op scheduling.
   per_gpu_thread_count = 1
   total_gpu_thread_count = per_gpu_thread_count * flags_obj.num_gpus
   os.environ['TF_GPU_THREAD_MODE'] = flags_obj.tf_gpu_thread_mode
   os.environ['TF_GPU_THREAD_COUNT'] = str(per_gpu_thread_count)
-  tf.compat.v1.logging.info('TF_GPU_THREAD_COUNT: %s',
+  tf.logging.info('TF_GPU_THREAD_COUNT: %s',
                             os.environ['TF_GPU_THREAD_COUNT'])
-  tf.compat.v1.logging.info('TF_GPU_THREAD_MODE: %s',
+  tf.logging.info('TF_GPU_THREAD_MODE: %s',
                             os.environ['TF_GPU_THREAD_MODE'])
 
   # Reduces general thread pool by number of threads used for GPU pool.
@@ -268,7 +268,7 @@ def learning_rate_with_decay(
 
   def learning_rate_fn(global_step):
     """Builds scaled learning rate function with 5 epoch warm up."""
-    lr = tf.compat.v1.train.piecewise_constant(global_step, boundaries, vals)
+    lr = tf.train.piecewise_constant(global_step, boundaries, vals)
     if warmup:
       warmup_steps = int(batches_per_epoch * 5)
       warmup_lr = (
@@ -378,7 +378,7 @@ def resnet_model_fn(features, labels, mode, model_class,
   """
 
   # Generate a summary node for the images
-  tf.compat.v1.summary.image('images', features, max_outputs=6)
+  tf.summary.image('images', features, max_outputs=6)
   # Checks that features/images have same data type being used for calculations.
   assert features.dtype == dtype
 
@@ -413,12 +413,12 @@ def resnet_model_fn(features, labels, mode, model_class,
         logits=logits, onehot_labels=one_hot_labels,
         label_smoothing=label_smoothing)
   else:
-    cross_entropy = tf.compat.v1.losses.sparse_softmax_cross_entropy(
+    cross_entropy = tf.losses.sparse_softmax_cross_entropy(
         logits=logits, labels=labels)
 
   # Create a tensor named cross_entropy for logging purposes.
   tf.identity(cross_entropy, name='cross_entropy')
-  tf.compat.v1.summary.scalar('cross_entropy', cross_entropy)
+  tf.summary.scalar('cross_entropy', cross_entropy)
 
   # If no loss_filter_fn is passed, assume we want the default behavior,
   # which is that batch_normalization variables are excluded from loss.
@@ -431,20 +431,20 @@ def resnet_model_fn(features, labels, mode, model_class,
       # loss is computed using fp32 for numerical stability.
       [
           tf.nn.l2_loss(tf.cast(v, tf.float32))
-          for v in tf.compat.v1.trainable_variables()
+          for v in tf.trainable_variables()
           if loss_filter_fn(v.name)
       ])
-  tf.compat.v1.summary.scalar('l2_loss', l2_loss)
+  tf.summary.scalar('l2_loss', l2_loss)
   loss = cross_entropy + l2_loss
 
   if mode == tf.estimator.ModeKeys.TRAIN:
-    global_step = tf.compat.v1.train.get_or_create_global_step()
+    global_step = tf.train.get_or_create_global_step()
 
     learning_rate = learning_rate_fn(global_step)
 
     # Create a tensor named learning_rate for logging purposes
     tf.identity(learning_rate, name='learning_rate')
-    tf.compat.v1.summary.scalar('learning_rate', learning_rate)
+    tf.summary.scalar('learning_rate', learning_rate)
 
     if flags.FLAGS.enable_lars:
       optimizer = tf.contrib.opt.LARSOptimizer(
@@ -453,7 +453,7 @@ def resnet_model_fn(features, labels, mode, model_class,
           weight_decay=weight_decay,
           skip_list=['batch_normalization', 'bias'])
     else:
-      optimizer = tf.compat.v1.train.MomentumOptimizer(
+      optimizer = tf.train.MomentumOptimizer(
           learning_rate=learning_rate,
           momentum=momentum
       )
@@ -461,7 +461,7 @@ def resnet_model_fn(features, labels, mode, model_class,
     fp16_implementation = getattr(flags.FLAGS, 'fp16_implementation', None)
     if fp16_implementation == 'graph_rewrite':
       optimizer = (
-          tf.compat.v1.train.experimental.enable_mixed_precision_graph_rewrite(
+          tf.train.experimental.enable_mixed_precision_graph_rewrite(
               optimizer, loss_scale=loss_scale))
 
     def _dense_grad_filter(gvs):
@@ -496,13 +496,13 @@ def resnet_model_fn(features, labels, mode, model_class,
         grad_vars = _dense_grad_filter(grad_vars)
       minimize_op = optimizer.apply_gradients(grad_vars, global_step)
 
-    update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
+    update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     train_op = tf.group(minimize_op, update_ops)
   else:
     train_op = None
 
-  accuracy = tf.compat.v1.metrics.accuracy(labels, predictions['classes'])
-  accuracy_top_5 = tf.compat.v1.metrics.mean(
+  accuracy = tf.metrics.accuracy(labels, predictions['classes'])
+  accuracy_top_5 = tf.metrics.mean(
       tf.nn.in_top_k(predictions=logits, targets=labels, k=5, name='top_5_op'))
   metrics = {'accuracy': accuracy,
              'accuracy_top_5': accuracy_top_5}
@@ -510,8 +510,8 @@ def resnet_model_fn(features, labels, mode, model_class,
   # Create a tensor named train_accuracy for logging purposes
   tf.identity(accuracy[1], name='train_accuracy')
   tf.identity(accuracy_top_5[1], name='train_accuracy_top_5')
-  tf.compat.v1.summary.scalar('train_accuracy', accuracy[1])
-  tf.compat.v1.summary.scalar('train_accuracy_top_5', accuracy_top_5[1])
+  tf.summary.scalar('train_accuracy', accuracy[1])
+  tf.summary.scalar('train_accuracy_top_5', accuracy_top_5[1])
 
   return tf.estimator.EstimatorSpec(
       mode=mode,
@@ -556,7 +556,7 @@ def resnet_main(
 
   # Creates session config. allow_soft_placement = True, is required for
   # multi-GPU and is not harmful for other modes.
-  session_config = tf.compat.v1.ConfigProto(
+  session_config = tf.ConfigProto(
       inter_op_parallelism_threads=flags_obj.inter_op_parallelism_threads,
       intra_op_parallelism_threads=flags_obj.intra_op_parallelism_threads,
       allow_soft_placement=True)
@@ -650,7 +650,7 @@ def resnet_main(
         hooks=train_hooks,
         max_steps=flags_obj.max_train_steps)
     eval_spec = tf.estimator.EvalSpec(input_fn=input_fn_eval)
-    tf.compat.v1.logging.info('Starting to train and evaluate.')
+    tf.logging.info('Starting to train and evaluate.')
     tf.estimator.train_and_evaluate(classifier, train_spec, eval_spec)
     # tf.estimator.train_and_evalute doesn't return anything in multi-worker
     # case.
@@ -673,7 +673,7 @@ def resnet_main(
       schedule[-1] = train_epochs - sum(schedule[:-1])  # over counting.
 
     for cycle_index, num_train_epochs in enumerate(schedule):
-      tf.compat.v1.logging.info('Starting cycle: %d/%d', cycle_index,
+      tf.logging.info('Starting cycle: %d/%d', cycle_index,
                                 int(n_loops))
 
       if num_train_epochs:
@@ -693,7 +693,7 @@ def resnet_main(
       # allows the eval (which is generally unimportant in those circumstances)
       # to terminate.  Note that eval will run for max_train_steps each loop,
       # regardless of the global_step count.
-      tf.compat.v1.logging.info('Starting to evaluate.')
+      tf.logging.info('Starting to evaluate.')
       eval_results = classifier.evaluate(input_fn=input_fn_eval,
                                          steps=flags_obj.max_train_steps)
 

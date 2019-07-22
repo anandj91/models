@@ -210,7 +210,7 @@ def input_fn(is_training,
   dataset = dataset.interleave(
       tf.data.TFRecordDataset,
       cycle_length=10,
-      num_parallel_calls=tf.data.experimental.AUTOTUNE)
+      num_parallel_calls=tf.contrib.data.AUTOTUNE)
 
   return resnet_run_loop.process_record_dataset(
       dataset=dataset,
@@ -386,6 +386,6 @@ def main(_):
 
 
 if __name__ == '__main__':
-  tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
+  tf.logging.set_verbosity(tf.logging.INFO)
   define_imagenet_flags()
   absl_app.run(main)

@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=0 PYTHONPATH=~/models:$PYTHONPATH python official/resnet/imagenet_main.py --data_dir=/h/anandj/TFRecords --model_dir=$(mktemp -d /tmp/tf/tmp-XXXXX) --resnet_size=152 --batch_size=$1
