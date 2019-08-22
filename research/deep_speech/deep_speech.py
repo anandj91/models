@@ -180,6 +180,7 @@ def model_fn(features, labels, mode, params):
   # Compute CTC loss
   loss = tf.reduce_mean(ctc_loss(
       label_length, ctc_input_length, labels, probs))
+  print('loss', loss)
 
   optimizer = tf.train.AdamOptimizer(learning_rate=flags_obj.learning_rate)
   global_step = tf.train.get_or_create_global_step()
@@ -225,7 +226,8 @@ def run_deep_speech(_):
   num_gpus = flags_core.get_num_gpus(flags_obj)
   distribution_strategy = distribution_utils.get_distribution_strategy(num_gpus)
   run_config = tf.estimator.RunConfig(
-      train_distribute=distribution_strategy)
+      train_distribute=distribution_strategy,
+      log_step_count_steps=10)
 
   estimator = tf.estimator.Estimator(
       model_fn=model_fn,
@@ -235,6 +237,7 @@ def run_deep_speech(_):
           "num_classes": num_classes,
       }
   )
+  print("estimator", estimator)
 
   # Benchmark logging
   run_params = {

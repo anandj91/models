@@ -116,10 +116,11 @@ def _rnn_layer(inputs, rnn_cell, rnn_hidden_size, layer_id, is_batch_norm,
                      name="rnn_bw_{}".format(layer_id))
 
   if is_bidirectional:
-    outputs, _ = tf.nn.bidirectional_dynamic_rnn(
-        cell_fw=fw_cell, cell_bw=bw_cell, inputs=inputs, dtype=tf.float32,
-        swap_memory=True)
-    rnn_outputs = tf.concat(outputs, -1)
+    list_of_inputs = tf.unstack(inputs, num=165, axis=1)
+    outputs, _, _ = tf.nn.static_bidirectional_rnn(
+        cell_fw=fw_cell, cell_bw=bw_cell, inputs=list_of_inputs, dtype=tf.float32)
+    rnn_outputs = tf.stack(outputs, axis=1)
+    print('rnn_outputs', rnn_outputs)
   else:
     rnn_outputs = tf.nn.dynamic_rnn(
         fw_cell, inputs, dtype=tf.float32, swap_memory=True)
@@ -178,8 +179,11 @@ class DeepSpeech2(object):
           is_batch_norm, self.is_bidirectional, training)
 
     # FC layer with batch norm.
+    print('RNN', inputs)
     inputs = batch_norm(inputs, training)
+    print('BN', inputs)
     logits = tf.layers.dense(inputs, self.num_classes, use_bias=self.use_bias)
+    print('LOGITS', logits)
 
     return logits
 
