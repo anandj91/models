@@ -122,6 +122,7 @@ def _rnn_layer(inputs, rnn_cell, rnn_hidden_size, layer_id, is_batch_norm,
     rnn_outputs = tf.stack(outputs, axis=1)
     print('rnn_outputs', rnn_outputs)
   else:
+    print('DYNAMIC')
     rnn_outputs = tf.nn.dynamic_rnn(
         fw_cell, inputs, dtype=tf.float32, swap_memory=True)
 

@@ -73,8 +73,9 @@ def ctc_loss(label_length, ctc_input_length, labels, logits):
   """Computes the ctc loss for the current batch of predictions."""
   label_length = tf.to_int32(tf.squeeze(label_length))
   ctc_input_length = tf.to_int32(tf.squeeze(ctc_input_length))
-  sparse_labels = tf.to_int32(
-      tf.keras.backend.ctc_label_dense_to_sparse(labels, label_length))
+  sparse_labels = tf.contrib.layers.dense_to_sparse(labels)
+  neg_ones = tf.SparseTensor(sparse_labels.indices, -1 * tf.ones_like(sparse_labels.values), sparse_labels.dense_shape)
+  sparse_labels = tf.sparse_add(sparse_labels, neg_ones)
   y_pred = tf.log(tf.transpose(
       logits, perm=[1, 0, 2]) + tf.keras.backend.epsilon())
 
@@ -227,6 +228,9 @@ def run_deep_speech(_):
   distribution_strategy = distribution_utils.get_distribution_strategy(num_gpus)
   run_config = tf.estimator.RunConfig(
       train_distribute=distribution_strategy,
+      save_checkpoints_steps=None,
+      save_checkpoints_secs=None,
+      save_summary_steps=1000,
       log_step_count_steps=10)
 
   estimator = tf.estimator.Estimator(
