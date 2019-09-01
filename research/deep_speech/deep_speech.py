@@ -225,7 +225,11 @@ def run_deep_speech(_):
   num_gpus = flags_core.get_num_gpus(flags_obj)
   distribution_strategy = distribution_utils.get_distribution_strategy(num_gpus)
   run_config = tf.estimator.RunConfig(
-      train_distribute=distribution_strategy)
+      train_distribute=distribution_strategy,
+      save_checkpoints_steps=None,
+      save_checkpoints_secs=None,
+      save_summary_steps=1000,
+      log_step_count_steps=10)
 
   estimator = tf.estimator.Estimator(
       model_fn=model_fn,
